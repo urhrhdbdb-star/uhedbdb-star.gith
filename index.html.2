@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>محرر Luau</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#1e1e1e;--side:#252526;--tab:#2d2d2d;--fg:#d4d4d4;--mut:#858585;--acc:#007acc;--hl:#264f78;--kw:#c586c0;--fn:#dcdcaa;--st:#ce9178;--cm:#6a9955;--nm:#b5cea8;--er:#f14c4c}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+@media(prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#fff;--side:#f3f3f3;--tab:#ececec;--fg:#222;--mut:#666;--hl:#cfe3f7;--kw:#af00db;--fn:#795e26;--st:#a31515;--cm:#008000;--nm:#098658}}
+*{box-sizing:border-box}
+body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;display:flex;flex-direction:column;overflow:hidden}
+.main{flex:1;display:flex;min-height:0;position:relative}
+.ed{flex:1;display:flex;flex-direction:column;min-width:0}
+.tabs{background:var(--tab);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;direction:ltr}
+.tab{padding:10px 16px;background:var(--bg);border-top:2px solid var(--acc);font-size:13px;font-family:ui-monospace,Menlo,monospace}
+.chk{margin:4px 8px;padding:7px 14px;background:#0e7a0d;color:#fff;border:0;border-radius:4px;font-size:14px;cursor:pointer}
+.sv{background:#007acc}.dl{background:#a1260d}.cp{background:#6b4fbb}.btns{display:flex;flex-wrap:wrap}
+.wrap{flex:1;position:relative;min-height:0;direction:ltr;overflow:hidden}
+.gut{position:absolute;top:0;left:0;width:44px;bottom:0;overflow:hidden;color:var(--mut);text-align:right;padding-right:10px;font:15px/1.6 ui-monospace,Menlo,Consolas,monospace;pointer-events:none}
+.gut div{height:24px}.gut .e{color:var(--er);font-weight:700}
+.pre,.ta{position:absolute;top:0;bottom:0;left:44px;right:0;margin:0;padding:0 12px 160px 4px;border:0;font:15px/1.6 ui-monospace,Menlo,Consolas,monospace;white-space:pre;tab-size:2;letter-spacing:0}
+.pre{overflow:hidden;pointer-events:none;color:var(--fg)}
+.ta{background:transparent;color:transparent;caret-color:var(--fg);resize:none;outline:none;overflow:auto;-webkit-text-fill-color:transparent}
+.k{color:var(--kw)}.f{color:var(--fn)}.s{color:var(--st)}.c{color:var(--cm)}.n{color:var(--nm)}
+.sg{position:absolute;left:0;top:0;width:min(300px,calc(100% - 52px));background:var(--side);border:1px solid var(--acc);border-radius:4px;max-height:200px;overflow:auto;z-index:3;display:none;direction:ltr;box-shadow:0 4px 16px #0006}
+.sg div{padding:6px 10px;font-size:13px;display:flex;gap:10px;align-items:baseline;cursor:pointer}
+.sg div.on{background:var(--hl)}
+.sg b{font-family:ui-monospace,Menlo,monospace;color:var(--fn);direction:ltr}
+.sg span{color:var(--mut);margin-left:auto;direction:rtl;font-size:12px}
+.help{background:var(--side);border-top:1px solid var(--mut);padding:10px 16px;height:110px;overflow:auto;direction:rtl;font-size:14px;line-height:1.7;flex-shrink:0}
+.help .p{cursor:pointer;padding:3px 0}.help .p:hover{background:var(--hl)}
+.status{background:var(--acc);color:#fff;font-size:12px;padding:4px 12px;display:flex;justify-content:space-between;flex-shrink:0}
+</style>
+</head>
+<body>
+<div class="main">
+ <div class="ed">
+  <div class="tabs"><div class="btns"><button class="chk sv" id="sv">💾 حفظ</button><button class="chk" id="chk">✅ فحص الكود</button><button class="chk dl" id="dl">🗑 مسح المحفوظ</button><button class="chk cp" id="cp">📋 نسخ</button></div><div class="tab" id="tab"></div></div>
+  <div class="wrap" id="wrap">
+   <div class="gut" id="gut"></div>
+   <pre class="pre" id="pre"></pre>
+   <textarea class="ta" id="ta" wrap="off" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off"></textarea>
+   <div class="sg" id="sg"></div>
+  </div>
+  <div class="help" id="help">اكتب كود وبتطلع لك قائمة اقتراحات. ولما تخلص اضغط «فحص الكود».</div>
+ </div>
+</div>
+<div class="status"><span>Luau</span><span id="st">جاهز</span></div>
+<script>
+var F={"main.luau":'-- اكتب كودك هنا\nlocal name = "Ali"\nprint("Hello", name)\n'};
+var cur="main.luau";
+var I=[
+["local","local | = ","تعريف متغير جديد"],["function","function |()\n  \nend","تعريف دالة"],["if","if | then\n  \nend","شرط"],["elseif","elseif | then","شرط ثاني"],["else","else\n  ","وإلا"],
+["then","then","تأتي بعد الشرط"],["end","end","تقفل الدالة أو الشرط أو الحلقة"],["for","for i = 1, | do\n  \nend","حلقة تعد من رقم إلى رقم"],["for in ipairs","for _, v in ipairs(|) do\n  \nend","حلقة على عناصر قائمة"],
+["while","while | do\n  \nend","حلقة تكرر ما دام الشرط صح"],["do","do","تبدأ جسم الحلقة"],["repeat","repeat\n  \nuntil |","كرر حتى يتحقق الشرط"],["return","return ","ترجع قيمة من الدالة"],["break","break","توقف الحلقة"],["continue","continue","تخطى للدورة التالية"],
+["and","and ","و"],["or","or ","أو"],["not","not ","نفي"],["nil","nil","لا شيء"],["true","true","صح"],["false","false","خطأ"],
+["print","print(|)","يطبع في نافذة Output"],["warn","warn(|)","يطبع تحذير أصفر"],["task.wait","task.wait(|)","ينتظر ثواني"],["task.spawn","task.spawn(function()\n  |\nend)","يشغل كود بالخلفية"],["task.delay","task.delay(|, function()\n  \nend)","ينفذ بعد وقت"],
+["pairs","pairs(|)","يمر على كل عناصر الجدول"],["ipairs","ipairs(|)","يمر على عناصر القائمة بالترتيب"],["type","type(|)","نوع القيمة"],["typeof","typeof(|)","نوع القيمة (يعرف أنواع روبلوكس)"],["tostring","tostring(|)","يحول لنص"],["tonumber","tonumber(|)","يحول لرقم"],
+["table.insert","table.insert(|, )","يضيف عنصر للقائمة"],["table.remove","table.remove(|, )","يحذف عنصر من القائمة"],["table.concat","table.concat(|, \", \")","يجمع القائمة في نص"],
+["math.floor","math.floor(|)","تقريب لأسفل"],["math.random","math.random(1, |)","رقم عشوائي"],["math.max","math.max(|, )","الأكبر"],["math.min","math.min(|, )","الأصغر"],["math.sqrt","math.sqrt(|)","الجذر التربيعي"],
+["string.format","string.format(\"%d\", |)","ينسق نص"],["string.sub","string.sub(|, 1, 3)","يقص جزء من نص"],["string.upper","string.upper(|)","أحرف كبيرة"],
+["Instance.new","Instance.new(\"|\")","ينشئ عنصر جديد مثل Part"],["game:GetService","game:GetService(\"|\")","يجيب خدمة مثل Players"],["workspace","workspace","عالم اللعبة"],["script.Parent","script.Parent","العنصر اللي فيه السكربت"],
+["Vector3.new","Vector3.new(|, , )","موقع أو حجم ثلاثي الأبعاد"],["Color3.fromRGB","Color3.fromRGB(|, , )","لون من أرقام"],["Connect","Connect(function(|)\n  \nend)","يربط حدث بدالة"],["Touched","Touched:Connect(function(hit)\n  |\nend)","حدث لمس العنصر"]];
+var KW="and break continue do else elseif end false for function if in local nil not or repeat return then true until while".split(" ");
+var BI="print warn pairs ipairs type typeof tostring tonumber game workspace script task math string table Instance Vector3 Color3 Enum".split(" ");
+var ta=document.getElementById("ta"),pre=document.getElementById("pre"),gut=document.getElementById("gut"),sg=document.getElementById("sg"),help=document.getElementById("help");
+var bad={},items=[],si=0,wordLen=0;
+function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+var RE=new RegExp("(--[^\\n]*)|(\"(?:[^\"\\\\\\n]|\\\\.)*\"?|'(?:[^'\\\\\\n]|\\\\.)*'?)|\\b("+KW.join("|")+")\\b|\\b(\\d+\\.?\\d*)\\b|\\b("+BI.join("|")+")\\b","g");
+function render(){var t=ta.value;pre.innerHTML=esc(t).replace(RE,function(m,c,s,k,n,b){return c?'<span class="c">'+c+'</span>':s?'<span class="s">'+s+'</span>':k?'<span class="k">'+k+'</span>':n?'<span class="n">'+n+'</span>':'<span class="f">'+b+'</span>'})+"\n";
+ var L=t.split("\n").length,h="";for(var i=1;i<=L;i++)h+='<div'+(bad[i]?' class="e"':'')+'>'+i+'</div>';gut.innerHTML=h;sync()}
+function sync(){pre.scrollTop=ta.scrollTop;pre.scrollLeft=ta.scrollLeft;gut.scrollTop=ta.scrollTop}
+function word(){var p=ta.selectionStart,m=/[A-Za-z_][\w.:]*$/.exec(ta.value.slice(0,p));return m?m[0]:""}
+function showSg(){var w=word();wordLen=w.length;if(!w){hideSg();return}var lw=w.toLowerCase();
+ items=I.filter(function(x){return x[0].toLowerCase().indexOf(lw)===0&&x[0].toLowerCase()!==lw}).slice(0,8);
+ if(!items.length){hideSg();return}si=0;drawSg()}
+function drawSg(){sg.style.display="block";sg.innerHTML=items.map(function(x,i){return'<div data-i="'+i+'" class="'+(i===si?"on":"")+'"><b>'+esc(x[0])+'</b><span>'+x[2]+'</span></div>'}).join("")}
+var mir=document.createElement("div");mir.style.cssText="position:absolute;visibility:hidden;white-space:pre;top:0;left:0;font:15px/1.6 ui-monospace,Menlo,Consolas,monospace;padding:0 12px 0 4px;tab-size:2";
+document.getElementById("wrap").appendChild(mir);
+function place(){mir.textContent=ta.value.slice(0,ta.selectionStart-wordLen);var m=document.createElement("span");m.textContent="\u200b";mir.appendChild(m);
+var w=document.getElementById("wrap"),x=44+m.offsetLeft-ta.scrollLeft,y=m.offsetTop+24-ta.scrollTop,sw=sg.offsetWidth,sh=sg.offsetHeight;
+if(x+sw>w.clientWidth-6)x=w.clientWidth-sw-6;if(x<46)x=46;
+if(y+sh>w.clientHeight-6)y=m.offsetTop-ta.scrollTop-sh;
+sg.style.left=x+"px";sg.style.top=Math.max(0,y)+"px"}
+var _d=drawSg;drawSg=function(){_d();place()};
+function hideSg(){sg.style.display="none";items=[]}
+function accept(it){var p=ta.selectionStart,v=ta.value,ins=it[1],c=ins.indexOf("|");ins=ins.replace("|","");
+ ta.value=v.slice(0,p-wordLen)+ins+v.slice(p);var np=p-wordLen+(c<0?ins.length:c);ta.setSelectionRange(np,np);ta.focus();hideSg();render()}
+sg.addEventListener("pointerdown",function(e){e.preventDefault();var d=e.target.closest("div");if(d)accept(items[+d.dataset.i])});
+ta.addEventListener("input",function(){render();showSg()});
+ta.addEventListener("scroll",sync);
+ta.addEventListener("blur",function(){setTimeout(hideSg,150)});
+ta.addEventListener("keydown",function(e){
+ if(items.length){if(e.key==="ArrowDown"){e.preventDefault();si=(si+1)%items.length;drawSg();return}
+  if(e.key==="ArrowUp"){e.preventDefault();si=(si+items.length-1)%items.length;drawSg();return}
+  if(e.key==="Enter"||e.key==="Tab"){e.preventDefault();accept(items[si]);return}
+  if(e.key==="Escape"){hideSg();return}}
+ if(e.key==="Tab"){e.preventDefault();var p=ta.selectionStart;ta.value=ta.value.slice(0,p)+"  "+ta.value.slice(p);ta.setSelectionRange(p+2,p+2);render()}});
+function check(src){var E=[],lines=src.split("\n"),st=[],br=[],com=false,pairs={")":"(","]":"[","}":"{"};
+ function er(l,m,w){E.push({l:l,m:m,w:w})}
+ lines.forEach(function(raw,i){var n=i+1,s=raw;
+  if(com){var k=s.indexOf("]]");if(k<0)return;s=s.slice(k+2);com=false}
+  s=s.replace(/--\[\[.*?\]\]/g,"");var mi=s.indexOf("--[[");if(mi>-1){com=true;s=s.slice(0,mi)}
+  s=s.replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g,'""').replace(/--.*$/,"");
+  if(/["']/.test(s))er(n,"في نص ما انقفل، ناقص علامة تنصيص",0);
+  if(/!=/.test(s))er(n,"في Luau عدم المساواة تكتب ~= مو !=",0);
+  if(/&&|\|\|/.test(s))er(n,"استخدم and و or بدل && و ||",0);
+  if(/\bnull\b/.test(s))er(n,"ما في null في Luau، الصح nil",0);
+  if(/\+\+/.test(s))er(n,"ما في ++ في Luau، اكتب i += 1",0);
+  var a=s.match(/^\s*(if|elseif)\b(.*)$/);if(a&&!/\bthen\b/.test(a[2]))er(n,"ناقص then بعد الشرط",0);
+  var b=s.match(/^\s*(for|while)\b(.*)$/);if(b&&!/\bdo\b/.test(b[2]))er(n,"ناقص do بعد "+b[1],0);
+  var c=s.match(/^\s*(?:if|elseif|while)\b(.*?)\b(?:then|do)\b/);if(c&&/=/.test(c[1].replace(/[=~<>]=/g,"")))er(n,"تقصد == للمقارنة؟ الـ = للتخزين فقط",1);
+  var prev=null;(s.match(/[A-Za-z_]\w*/g)||[]).forEach(function(w){
+   if(w==="function")st.push({t:w,l:n});
+   else if((w==="if"||w==="for"||w==="while")&&(prev===null||["then","else","do","end"].indexOf(prev)>-1))st.push({t:w,l:n});
+   else if(w==="do"){var tp=st[st.length-1];if(tp&&(tp.t==="for"||tp.t==="while")&&!tp.d)tp.d=1;else st.push({t:"do",l:n})}
+   else if(w==="repeat")st.push({t:w,l:n});
+   else if(w==="until"){var u=st.pop();if(!u||u.t!=="repeat")er(n,"until بدون repeat",0)}
+   else if(w==="end"){var e=st.pop();if(!e)er(n,"end زيادة، ما لها بداية",0);else if(e.t==="repeat")er(n,"repeat تنتهي بـ until مو end",0)}
+   prev=w});
+  for(var j=0;j<s.length;j++){var ch=s[j];if("([{".indexOf(ch)>-1)br.push({c:ch,l:n});else if(pairs[ch]){var o=br.pop();if(!o||o.c!==pairs[ch])er(n,"القوس "+ch+" ما له قوس فتح يطابقه",0)}}});
+ st.forEach(function(x){er(x.l,"ناقص end تقفل "+x.t+" اللي بدأت هنا",0)});
+ br.forEach(function(x){er(x.l,"القوس "+x.c+" ما انقفل",0)});
+ E.sort(function(a,b){return a.l-b.l});return E}
+function runCheck(){var E=check(ta.value);bad={};E.forEach(function(e){bad[e.l]=1});render();
+ document.getElementById("st").textContent=E.length?E.length+" ملاحظات":"✓ سليم";
+ help.innerHTML=E.length?E.map(function(e){return'<div class="p" data-l="'+e.l+'">'+(e.w?"⚠️":"❌")+" سطر "+e.l+": "+e.m+"</div>"}).join(""):"✅ الكود سليم، ما لقيت أخطاء.";
+}
+help.onclick=function(e){var p=e.target.closest(".p");if(!p)return;var l=+p.dataset.l,ls=ta.value.split("\n"),pos=0;for(var i=0;i<l-1;i++)pos+=ls[i].length+1;ta.focus();ta.setSelectionRange(pos,pos+ls[l-1].length);ta.scrollTop=Math.max(0,(l-3)*24);sync()};
+document.getElementById("chk").onclick=runCheck;
+var dbDoc=null,saved="",ST=document.getElementById("st"),dlT=0;
+function dirty(){ST.textContent=ta.value===saved?"✓ محفوظ":"● غير محفوظ"}
+function lsGet(){try{return localStorage.getItem("luau-main")}catch(e){return null}}
+function lsSet(v){try{if(v===null)localStorage.removeItem("luau-main");else localStorage.setItem("luau-main",v)}catch(e){}}
+async function save(){var v=ta.value;lsSet(v);saved=v;
+ try{if(dbDoc){await dbDoc.set({text:v,savedAt:Date.now()});ST.textContent="✓ تم الحفظ"}else ST.textContent="✓ تم الحفظ على هذا الجهاز"}
+ catch(e){ST.textContent="✓ تم الحفظ على هذا الجهاز فقط"}}
+async function wipe(){var b=document.getElementById("dl");
+ if(!dlT){b.textContent="اضغط مرة ثانية للتأكيد";dlT=setTimeout(function(){dlT=0;b.textContent="🗑 مسح المحفوظ"},3000);return}
+ clearTimeout(dlT);dlT=0;b.textContent="🗑 مسح المحفوظ";lsSet(null);
+ try{if(dbDoc)await dbDoc.delete()}catch(e){}
+ saved="";ta.value=F[cur];render();ST.textContent="تم مسح المحفوظ"}
+function copyCode(){var b=document.getElementById("cp");
+ function msg(t){b.textContent=t;setTimeout(function(){b.textContent="📋 نسخ"},2000)}
+ function fb(){ta.focus();ta.select();var r=false;try{r=document.execCommand("copy")}catch(e){}ta.setSelectionRange(0,0);msg(r?"✓ تم النسخ":"ما اننسخ، ظلل الكود وانسخه يدوي")}
+ if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(ta.value).then(function(){msg("✓ تم النسخ")},fb);else fb()}
+document.getElementById("cp").onclick=copyCode;
+ta.addEventListener("input",dirty);
+document.getElementById("sv").onclick=save;document.getElementById("dl").onclick=wipe;
+document.addEventListener("keydown",function(e){if((e.metaKey||e.ctrlKey)&&e.key==="s"){e.preventDefault();save()}});
+(async function(){await 0;var l=lsGet();if(l!==null){ta.value=l;saved=l;render();ST.textContent="✓ محفوظ"}var base=ta.value;
+ try{if(!window.claude)return;var u=await claude.use("user"),d=await claude.use("db");if(!u||!d)return;var id=await u.id();if(!id)return;
+  dbDoc=d.collection("data/users/"+id).doc("main");var sn=await dbDoc.get();
+  if(sn.exists&&typeof sn.data().text==="string"&&ta.value===base){var t=sn.data().text;ta.value=t;saved=t;render();ST.textContent="✓ محفوظ"}}catch(e){}})();
+ta.value=F[cur];document.getElementById("tab").textContent=cur;render();
+</script>
+</body>
+                                                                                     </html>
