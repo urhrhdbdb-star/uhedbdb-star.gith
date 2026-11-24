@@ -1,0 +1,708 @@
+-- ==========================================================
+-- Abu Hanash Hub (WindUI) - Complete Professional Suite
+-- ==========================================================
+
+local Success, WindUI = pcall(function()
+    return loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
+end)
+
+if not Success or not WindUI then
+    warn("Failed to load WindUI library")
+    return
+end
+
+local Window = WindUI:CreateWindow({
+    Title = "Abu Hanash | Hub",
+    Icon = "rbxassetid://137725470881221",
+    Author = "Abu Hanash",
+    Folder = "AbuHanashHub",
+    Size = UDim2.fromOffset(580, 460),
+    MinSize = Vector2.new(560, 350),
+    MaxSize = Vector2.new(850, 560),
+    Transparent = true,
+    Theme = "Dark",
+    Resizable = true,
+    SideBarWidth = 200,
+    BackgroundImageTransparency = 0.42,
+    HideSearchBar = true,
+    ScrollBarEnabled = false,
+    User = {
+        Enabled = false,
+    },
+})
+
+-- ==========================================================
+-- 1. الزر العريض الرئيسي (العلوي)
+-- ==========================================================
+Window:EditOpenButton({
+    Title = "Abu Hanash",
+    Icon = "rbxassetid://137725470881221",
+    CornerRadius = UDim.new(1, 0),
+    StrokeThickness = 1,
+    Color = ColorSequence.new(
+        Color3.fromHex("#3d3d3d"),
+        Color3.fromHex("#3d3d3d")
+    ),
+    OnlyMobile = false,
+    Enabled = true,
+    Draggable = true,
+})
+
+-- ==========================================================
+-- 2. الزر الثاني الدائري
+-- ==========================================================
+local CoreGui = game:GetService("CoreGui")
+if not CoreGui:FindFirstChild("AbuHanashSecondIcon") then
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "AbuHanashSecondIcon"
+    ScreenGui.Parent = CoreGui
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+    local SecondButton = Instance.new("ImageButton")
+    SecondButton.Name = "IconButton"
+    SecondButton.Parent = ScreenGui
+    SecondButton.BackgroundColor3 = Color3.fromHex("#151515")
+    SecondButton.Position = UDim2.new(0.5, -20, 0.28, 0) 
+    SecondButton.Size = UDim2.new(0, 40, 0, 40)
+    SecondButton.Image = "rbxassetid://137725470881221"
+    SecondButton.Draggable = true
+    SecondButton.Active = true
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0, 8)
+    UICorner.Parent = SecondButton
+
+    local UIStroke = Instance.new("UIStroke")
+    UIStroke.Color = Color3.fromHex("#3d3d3d")
+    UIStroke.Thickness = 1
+    UIStroke.Parent = SecondButton
+
+    local Debounce = false
+    SecondButton.MouseButton1Click:Connect(function()
+        if not Debounce then
+            Debounce = true
+            Window:Toggle()
+            task.delay(0.3, function()
+                Debounce = false
+            end)
+        end
+    end)
+end
+
+-- ==========================================================
+-- 3. الخدمات والمتغيرات الأساسية ونظام الكشف
+-- ==========================================================
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local Camera = Workspace.CurrentCamera
+local LP = Players.LocalPlayer
+
+Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+    Camera = Workspace.CurrentCamera or Camera
+end)
+
+local Settings = {
+    SilentAim = false,
+    FOV = 200,
+    AimHead = true,
+    DropESP = true,
+    BoxESP = false,
+    PlayerESP = false,
+    SpeedEnabled = false,
+    WalkSpeedValue = 16,
+    JumpEnabled = false,
+    JumpPowerValue = 50,
+    NoclipEnabled = false,
+}
+
+local FriendList = {}
+local BoxCache = {}
+
+local ESPContainer = Instance.new("Folder")
+ESPContainer.Name = "AbuHanash_ExactESP"
+ESPContainer.Parent = CoreGui
+
+local dropGui = Instance.new("ScreenGui")
+dropGui.Name = "_AbuHanash_DropESP"
+dropGui.ResetOnSpawn = false
+dropGui.IgnoreGuiInset = true
+dropGui.DisplayOrder = 21
+dropGui.Parent = LP:WaitForChild("PlayerGui")
+
+local dropFor = {}
+
+local function rarityOutline(n2)
+    local low = string.lower(n2 or "")
+    if string.find(low, "mythic") then return Color3.fromRGB(200, 80, 255) end
+    if string.find(low, "omega")  then return Color3.fromRGB(255, 60, 60) end
+    if string.find(low, "legend") then return Color3.fromRGB(255, 200, 40) end
+    if string.find(low, "rare")   then return Color3.fromRGB(80, 140, 255) end
+    if string.find(low, "uncommon") or string.find(low, "uncom") then return Color3.fromRGB(80, 220, 80) end
+    if string.find(low, "common") then return Color3.fromRGB(190,190,190) end
+    if string.find(low, "cash") or string.find(low, "money") or string.find(low, "coin") then return Color3.fromRGB(80, 255, 80) end
+    if string.find(low, "energy") or string.find(low, "ammo") or string.find(low, "med") or string.find(low, "shot") then return Color3.fromRGB(80, 180, 255) end
+    if string.find(low, "gun") or string.find(low, "pistol") or string.find(low, "rifle") or string.find(low, "smg")
+       or string.find(low, "shotgun") or string.find(low, "sniper") or string.find(low, "weapon") or string.find(low, "rpg")
+       or string.find(low, "ak") or string.find(low, "m4") or string.find(low, "deagle") or string.find(low, "doublebarrel") then
+        return Color3.fromRGB(255, 210, 70)
+    end
+    return nil
+end
+
+local function ensureDrop(part)
+    if dropFor[part] and dropFor[part].bill.Parent then return dropFor[part] end
+    local bill = Instance.new("BillboardGui")
+    bill.AlwaysOnTop = true
+    bill.Size = UDim2.new(0, 200, 0, 22)
+    bill.StudsOffset = Vector3.new(0, 1.8, 0)
+    bill.Adornee = part
+    
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1,0,1,0)
+    lbl.BackgroundTransparency = 1
+    lbl.TextColor3 = Color3.new(1,1,1)
+    lbl.TextStrokeColor3 = Color3.new(0,0,0)
+    lbl.TextStrokeTransparency = 0
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextScaled = true
+    lbl.Text = part.Name
+    lbl.Parent = bill
+    
+    bill.Parent = dropGui
+    dropFor[part] = {bill = bill, lbl = lbl}
+    return dropFor[part]
+end
+
+task.spawn(function()
+    while task.wait(8) do
+        if not Settings.DropESP then continue end
+        pcall(function()
+            for _, inst in ipairs(Workspace:GetDescendants()) do
+                task.wait()
+                if not dropFor[inst] and (inst:IsA("BasePart") or inst:IsA("MeshPart")) then
+                    if rarityOutline(inst.Name) then ensureDrop(inst) end
+                end
+            end
+        end)
+    end
+end)
+
+local PlayerBillboards = {}
+
+local function CreatePlayerESP(player)
+    if player == LP then return end
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = player.Name .. "_ESP"
+    billboard.AlwaysOnTop = true
+    billboard.Size = UDim2.new(0, 140, 0, 70)
+    billboard.StudsOffset = Vector3.new(0, 2.6, 0)
+
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Size = UDim2.new(1, 0, 1, 0)
+    mainFrame.BackgroundTransparency = 1
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = billboard
+
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(1, 0, 0, 15)
+    nameLabel.Position = UDim2.new(0, 0, 0, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    nameLabel.TextSize = 12
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.Text = player.Name
+    nameLabel.Parent = mainFrame
+
+    local healthBarBg = Instance.new("Frame")
+    healthBarBg.Size = UDim2.new(0, 120, 0, 5)
+    healthBarBg.Position = UDim2.new(0.5, -60, 0, 17)
+    healthBarBg.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    healthBarBg.BorderSizePixel = 0
+    healthBarBg.Parent = mainFrame
+
+    local healthBar = Instance.new("Frame")
+    healthBar.Size = UDim2.new(1, 0, 1, 0)
+    healthBar.BackgroundColor3 = Color3.fromRGB(0, 255, 90)
+    healthBar.BorderSizePixel = 0
+    healthBar.Name = "HealthFill"
+    healthBar.Parent = healthBarBg
+
+    local infoLabel = Instance.new("TextLabel")
+    infoLabel.Size = UDim2.new(1, 0, 0, 14)
+    infoLabel.Position = UDim2.new(0, 0, 0, 24)
+    infoLabel.BackgroundTransparency = 1
+    infoLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    infoLabel.TextSize = 10
+    infoLabel.Font = Enum.Font.Gotham
+    infoLabel.Parent = mainFrame
+
+    local weaponLabel = Instance.new("TextLabel")
+    weaponLabel.Size = UDim2.new(1, 0, 0, 28)
+    weaponLabel.Position = UDim2.new(0, 0, 0, 39)
+    weaponLabel.BackgroundTransparency = 1
+    weaponLabel.TextColor3 = Color3.fromRGB(255, 170, 0)
+    weaponLabel.TextSize = 10
+    weaponLabel.Font = Enum.Font.GothamBold
+    weaponLabel.TextWrapped = true
+    weaponLabel.Parent = mainFrame
+
+    PlayerBillboards[player] = billboard
+
+    local function updateESP()
+        local char = player.Character
+        local localChar = LP.Character
+        if Settings.PlayerESP and char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChildOfClass("Humanoid") and localChar and localChar:FindFirstChild("HumanoidRootPart") then
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            local rootPart = char:FindFirstChild("HumanoidRootPart")
+            local localRoot = localChar:FindFirstChild("HumanoidRootPart")
+
+            local distance = math.floor((rootPart.Position - localRoot.Position).Magnitude)
+            
+            local isSafe = char:FindFirstChildOfClass("ForceField") ~= nil or char:GetAttribute("SafeZone") == true or player:GetAttribute("Safe") == true
+            local isDowned = char:GetAttribute("Downed") == true or humanoid.Health <= 10
+            local isFriend = FriendList[player.Name] == true
+            
+            if isFriend then
+                nameLabel.Text = player.Name .. " [FRIEND]"
+                nameLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
+            elseif isDowned then
+                nameLabel.Text = player.Name .. " [DOWNED]"
+                nameLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+            elseif isSafe then
+                nameLabel.Text = player.Name .. " [SAFE]"
+                nameLabel.TextColor3 = Color3.fromRGB(0, 170, 255)
+            else
+                nameLabel.Text = player.Name
+                nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            end
+
+            local healthPercent = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+            healthBar.Size = UDim2.new(healthPercent, 0, 1, 0)
+            
+            local currentHealth = math.floor(humanoid.Health)
+            local maxHealth = math.floor(humanoid.MaxHealth)
+            infoLabel.Text = "[" .. distance .. "M] [" .. currentHealth .. "/" .. maxHealth .. "]"
+
+            local weaponsList = ""
+            local tool = char:FindFirstChildOfClass("Tool")
+            if tool and tool.Name:lower() ~= "fists" then
+                weaponsList = "[" .. tool.Name .. "]\n"
+            end
+            local backpack = player:FindFirstChild("Backpack")
+            if backpack then
+                for _, item in pairs(backpack:GetChildren()) do
+                    if item:IsA("Tool") and item.Name:lower() ~= "fists" then
+                        weaponsList = weaponsList .. "[" .. item.Name .. "]\n"
+                    end
+                end
+            end
+            
+            weaponLabel.Text = weaponsList
+
+            billboard.Adornee = rootPart
+            billboard.Parent = ESPContainer
+            billboard.Enabled = true
+        else
+            billboard.Enabled = false
+        end
+    end
+
+    RunService.RenderStepped:Connect(updateESP)
+end
+
+for _, p in ipairs(Players:GetPlayers()) do CreatePlayerESP(p) end
+Players.PlayerAdded:Connect(CreatePlayerESP)
+
+Players.PlayerRemoving:Connect(function(p)
+    if PlayerBillboards[p] then
+        pcall(function() PlayerBillboards[p]:Destroy() end)
+        PlayerBillboards[p] = nil
+    end
+    if BoxCache[p] then
+        pcall(function() BoxCache[p]:Destroy() end)
+        BoxCache[p] = nil
+    end
+    FriendList[p.Name] = nil
+end)
+
+RunService.RenderStepped:Connect(function()
+    pcall(function()
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LP then
+                local char = p.Character
+                local hum = char and char:FindFirstChildOfClass("Humanoid")
+                if Settings.BoxESP and char and hum and hum.Health > 0 then
+                    local box = BoxCache[p]
+                    if not box or box.Parent ~= char then
+                        if box then pcall(function() box:Destroy() end) end
+                        box = Instance.new("Highlight")
+                        box.Name = "SmartBox"
+                        box.Adornee = char
+                        box.Parent = char
+                        BoxCache[p] = box
+                    end
+                    
+                    local isSafe = char:FindFirstChildOfClass("ForceField") ~= nil or char:GetAttribute("SafeZone") == true
+                    local isFriend = FriendList[p.Name] == true
+                    
+                    if isFriend then
+                        box.FillColor = Color3.fromRGB(0, 255, 100)
+                        box.FillTransparency = 0.85
+                        box.OutlineColor = Color3.fromRGB(0, 255, 100)
+                        box.OutlineTransparency = 0
+                    elseif isSafe then
+                        box.FillColor = Color3.fromRGB(0, 170, 255)
+                        box.FillTransparency = 0.9
+                        box.OutlineColor = Color3.fromRGB(0, 200, 255)
+                        box.OutlineTransparency = 0.2
+                    else
+                        box.FillColor = Color3.fromRGB(255, 30, 30)
+                        box.FillTransparency = 0.82
+                        box.OutlineColor = Color3.fromRGB(255, 0, 0)
+                        box.OutlineTransparency = 0
+                    end
+                    box.Enabled = true
+                else
+                    if BoxCache[p] then
+                        pcall(function() BoxCache[p]:Destroy() end)
+                        BoxCache[p] = nil
+                    end
+                end
+            end
+        end
+    end)
+end)
+
+-- ==========================================================
+-- 4. إعدادات الـ Silent Aim
+-- ==========================================================
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Visible = false
+FOVCircle.Transparency = 0.7
+FOVCircle.Thickness = 1.5
+FOVCircle.Color = Color3.fromHex("#3d3d3d")
+FOVCircle.Filled = false
+
+RunService.RenderStepped:Connect(function()
+    FOVCircle.Radius = Settings.FOV
+    FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+end)
+
+local closestPart = nil
+local reentry = false
+local oldNC = nil
+local plrs = Players:GetPlayers()
+Players.PlayerAdded:Connect(function(p) table.insert(plrs, p) end)
+Players.PlayerRemoving:Connect(function(p)
+    for i = 1, #plrs do if plrs[i] == p then table.remove(plrs, i); break end end
+end)
+
+local function alive(c)
+    if not c then return false end
+    local h = c:FindFirstChildOfClass("Humanoid")
+    local r = c:FindFirstChild("HumanoidRootPart")
+    return h and r and h.Health > 0
+end
+
+local function myRoot()
+    local c = LP.Character
+    return c and (c:FindFirstChild("HumanoidRootPart") or c:FindFirstChild("Torso"))
+end
+
+local function findTarget()
+    local root = myRoot()
+    if not root then return nil end
+    local cx, cy = Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2
+    local best, bestD2 = nil, Settings.FOV * Settings.FOV
+    for i = 1, #plrs do
+        local p = plrs[i]
+        if p ~= LP and not FriendList[p.Name] then
+            local ch = p.Character
+            local isSafe = ch and (ch:FindFirstChildOfClass("ForceField") ~= nil or ch:GetAttribute("SafeZone") == true)
+            if alive(ch) and not isSafe then
+                local ap = Settings.AimHead and (ch:FindFirstChild("Head") or ch:FindFirstChild("HumanoidRootPart")) or (ch:FindFirstChild("HumanoidRootPart") or ch:FindFirstChild("Head"))
+                if ap then
+                    local sp, onScreen = Camera:WorldToViewportPoint(ap.Position)
+                    if onScreen then
+                        local dx, dy = sp.X - cx, sp.Y - cy
+                        local pd = dx*dx + dy*dy
+                        if pd < bestD2 then
+                            bestD2 = pd
+                            best = ap
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return best
+end
+
+local hookNames = { raycast = true, findpartonray = true, findpartonraywithwhitelistignorelist = true, findpartonraywithwhitelistandignorelist = true, findpartonraywithwhitelist = true, findpartonraywithignorelist = true }
+pcall(function()
+    oldNC = hookmetamethod(game, "__namecall", function(self, ...)
+        if not Settings.SilentAim or reentry then return oldNC(self, ...) end
+        local mm = string.lower(getnamecallmethod())
+        if not hookNames[mm] or not (closestPart and closestPart.Parent) then return oldNC(self, ...) end
+        reentry = true
+        local args = {...}
+        local results
+        pcall(function()
+            local origin = typeof(args[1]) == "Vector3" and args[1] or (typeof(args[1]) == "Ray" and args[1].Origin or Camera.CFrame.Position)
+            local targetPos = closestPart.Position
+            local direction = (targetPos - origin).Unit * 10000
+            
+            if mm == "raycast" then
+                local rp = RaycastParams.new()
+                rp.FilterType = Enum.RaycastFilterType.Include
+                rp.FilterDescendantsInstances = { closestPart.Parent }
+                local r = Workspace:Raycast(origin, direction, rp)
+                if r then results = { r } else results = { oldNC(self, unpack(args)) } end
+            else
+                local ray = Ray.new(origin, direction)
+                local h, p2, n2, m2 = Workspace:FindPartOnRayWithWhitelist(ray, { closestPart.Parent })
+                if h then results = { h, p2, n2, m2 } else results = { oldNC(self, unpack(args)) } end
+            end
+        end)
+        reentry = false
+        if not results then return oldNC(self, ...) end
+        return unpack(results)
+    end)
+end)
+
+RunService.Heartbeat:Connect(function()
+    closestPart = Settings.SilentAim and findTarget() or nil
+end)
+
+RunService.Stepped:Connect(function()
+    pcall(function()
+        local char = LP.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            local root = char:FindFirstChild("HumanoidRootPart")
+            if hum then
+                if Settings.SpeedEnabled then hum.WalkSpeed = Settings.WalkSpeedValue end
+                if Settings.JumpEnabled then hum.UseJumpPower = true; hum.JumpPower = Settings.JumpPowerValue end
+            end
+            if Settings.NoclipEnabled and root then
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        if root.Position.Y > 2 then part.CanCollide = false else part.CanCollide = true end
+                    end
+                end
+            end
+        end
+    end)
+end)
+
+RunService.Heartbeat:Connect(function()
+    pcall(function()
+        local myR = myRoot()
+        for part, d in pairs(dropFor) do
+            if not (part and part.Parent) then
+                pcall(function() d.bill:Destroy() end)
+                dropFor[part] = nil
+            else
+                if not Settings.DropESP then
+                    d.bill.Enabled = false
+                else
+                    local far = myR and (part.Position - myR.Position).Magnitude > 60
+                    if far then
+                        d.bill.Enabled = false
+                    else
+                        local col = rarityOutline(part.Name)
+                        if col then
+                            d.lbl.TextStrokeColor3 = col
+                            d.bill.Enabled = true
+                        else
+                            d.bill.Enabled = false
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end)
+
+-- ==========================================================
+-- 5. واجهة الأقسام (Combat, General, ESP, Friends)
+-- ==========================================================
+local CombatTab = Window:Tab({ Title = "Combat", Icon = "swords" })
+
+CombatTab:Toggle({
+    Title = "Silent Aim",
+    Desc = "Bullets go to the closest enemy in your FOV automatically",
+    Type = "Checkbox",
+    Default = false,
+    Callback = function(v)
+        Settings.SilentAim = v
+        FOVCircle.Visible = v
+    end
+})
+
+CombatTab:Space()
+
+CombatTab:Slider({
+    Title = "FOV Size",
+    Desc = "Adjust the range of your Silent Aim circle (10 - 1000)",
+    Step = 1,
+    Value = { Min = 10, Max = 1000, Default = 200 },
+    Callback = function(value) Settings.FOV = value end,
+})
+
+-- قسم General (المعدل حسب قوانين اللعبة بالضبط من 1 لـ 30 ومن 1 لـ 100)
+local GeneralTab = Window:Tab({ Title = "General", Icon = "user" })
+
+GeneralTab:Toggle({
+    Title = "Enable WalkSpeed",
+    Desc = "Toggle custom movement speed modification",
+    Type = "Checkbox",
+    Default = false,
+    Callback = function(v) Settings.SpeedEnabled = v end
+})
+
+GeneralTab:Space()
+
+GeneralTab:Slider({
+    Title = "Walk Speed",
+    Desc = "Adjust player movement velocity dynamically (1 - 30)",
+    Step = 1,
+    Value = { Min = 1, Max = 30, Default = 16 },
+    Callback = function(value) Settings.WalkSpeedValue = value end,
+})
+
+GeneralTab:Space()
+
+GeneralTab:Toggle({
+    Title = "Enable Jump Power",
+    Desc = "Toggle custom jump height modification",
+    Type = "Checkbox",
+    Default = false,
+    Callback = function(v) Settings.JumpEnabled = v end
+})
+
+GeneralTab:Space()
+
+GeneralTab:Slider({
+    Title = "Jump Power",
+    Desc = "Adjust character jump height capacity (1 - 100)",
+    Step = 1,
+    Value = { Min = 1, Max = 100, Default = 50 },
+    Callback = function(value) Settings.JumpPowerValue = value end,
+})
+
+GeneralTab:Space()
+
+GeneralTab:Toggle({
+    Title = "Safe Noclip",
+    Desc = "Walk through walls when elevated above ground",
+    Type = "Checkbox",
+    Default = false,
+    Callback = function(v) Settings.NoclipEnabled = v end
+})
+
+-- قسم ESP
+local ESPTab = Window:Tab({ Title = "ESP", Icon = "scan" })
+
+ESPTab:Toggle({
+    Title = "Enable ESP",
+    Desc = "Master switch to turn player visual esp on or off",
+    Type = "Checkbox",
+    Default = false,
+    Callback = function(v) Settings.PlayerESP = v end
+})
+
+ESPTab:Space()
+
+ESPTab:Toggle({
+    Title = "Smart Box ESP",
+    Desc = "Highlight player models through walls with team/friend colors",
+    Type = "Checkbox",
+    Default = false,
+    Callback = function(v) Settings.BoxESP = v end
+})
+
+ESPTab:Space()
+
+ESPTab:Toggle({
+    Title = "Drop & Loot ESP",
+    Desc = "Display weapons, items and cash drops on the map",
+    Type = "Checkbox",
+    Default = true,
+    Callback = function(v) Settings.DropESP = v end
+})
+
+-- قسم Friends
+local FriendsTab = Window:Tab({ Title = "Friends", Icon = "users" })
+
+FriendsTab:Paragraph({
+    Title = "Friend Whitelist System",
+    Desc = "Select players from the list below to protect them. Protected players turn green and are ignored by Silent Aim."
+})
+
+local function RefreshPlayerDropdown()
+    local playerNames = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LP then table.insert(playerNames, p.Name) end
+    end
+    return playerNames
+end
+
+local SelectedTargetPlayers = {}
+
+local PlayerDropdown = FriendsTab:Dropdown({
+    Title = "Select Players",
+    Values = RefreshPlayerDropdown(),
+    Multi = true,
+    Default = {},
+    Callback = function(selected)
+        if type(selected) == "table" then
+            SelectedTargetPlayers = selected
+        else
+            SelectedTargetPlayers = { selected }
+        end
+    end
+})
+
+Players.PlayerAdded:Connect(function() pcall(function() PlayerDropdown:SetValues(RefreshPlayerDropdown()) end) end)
+Players.PlayerRemoving:Connect(function() pcall(function() PlayerDropdown:SetValues(RefreshPlayerDropdown()) end) end)
+
+FriendsTab:Space()
+
+FriendsTab:Button({
+    Title = "Add Selected to Whitelist",
+    Desc = "Protect selected players and turn them green",
+    Callback = function()
+        local count = 0
+        for name, state in pairs(SelectedTargetPlayers) do
+            local pName = type(name) == "string" and name or state
+            if state and pName and pName ~= "" then
+                FriendList[pName] = true
+                count = count + 1
+            end
+        end
+        WindUI:Notify({ Title = "Abu Hanash", Content = "Protected " .. count .. " players successfully!", Duration = 2 })
+    end
+})
+
+FriendsTab:Space()
+
+FriendsTab:Button({
+    Title = "Clear All Friends",
+    Desc = "Remove protection from all players",
+    Callback = function()
+        FriendList = {}
+        WindUI:Notify({ Title = "Abu Hanash", Content = "All friends protection cleared.", Duration = 2 })
+    end
+})
+
+-- إشعار التفعيل
+WindUI:Notify({
+    Title = "Abu Hanash Hub Loaded",
+    Content = "Welcome, Abu Hanash • All Settings Standardized",
+    Duration = 5,
+    Image = "success"
+})
